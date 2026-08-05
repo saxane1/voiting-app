@@ -1,0 +1,156 @@
+@import "tailwindcss" source(none);
+
+/* ---------------------------------------------------------------------------
+   Design system
+   ---------------------------------------------------------------------------
+   frontend/design/psu-tokens.css is the SOURCE OF TRUTH for colour, type scale,
+   radius, shadow and spacing. It is imported, never copied — to change the look
+   of the app, edit that file. Nothing under frontend/design/ is modified here.
+
+   (frontend/design/ also carries a second, unrelated "modernist" design system
+   under _ds/. That one is not the PSU Vote look — psu-tokens.css is, and it
+   says so on line 3: "Drop this into your Next.js app's global stylesheet".)
+   --------------------------------------------------------------------------- */
+@import "../../design/psu-tokens.css";
+
+/* Class detection is scoped to src/ on purpose: automatic detection would also
+   crawl design/_ds/_ds_bundle.js and the prototype HTML, which carry another
+   system's class names. */
+@source "../../src";
+
+/* ---------------------------------------------------------------------------
+   Fonts
+   ---------------------------------------------------------------------------
+   psu-tokens.css names "Space Grotesk" / "Public Sans" and notes that Next
+   should prefer next/font. layout.js loads both and exposes them as CSS
+   variables; these bind the design's tokens onto the self-hosted faces while
+   keeping the sheet's own fallback stack behind them.
+   --------------------------------------------------------------------------- */
+@theme {
+  --font-display: var(--font-space-grotesk), "Space Grotesk", system-ui, sans-serif;
+  --font-body: var(--font-public-sans), "Public Sans", system-ui, sans-serif;
+  --font-sans: var(--font-public-sans), "Public Sans", system-ui, sans-serif;
+}
+
+/* ---------------------------------------------------------------------------
+   Motion — the prototype's keyframes, exposed as Tailwind animation utilities
+   (animate-fade-up, animate-pop, …). Values mirror the <style> block in
+   design/PSU Vote.dc.html, which is a prototype page rather than an importable
+   stylesheet.
+   --------------------------------------------------------------------------- */
+@theme {
+  --animate-fade-up: fade-up 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-fade-in: fade-in 0.24s ease both;
+  --animate-pop: pop 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-shimmer: shimmer 1.4s linear infinite;
+  --animate-pulse-dot: pulse-dot 1.4s ease-in-out infinite;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes pop {
+    0% {
+      transform: scale(0.92);
+      opacity: 0;
+    }
+    60% {
+      transform: scale(1.02);
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes shimmer {
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  @keyframes pulse-dot {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.4;
+      transform: scale(0.7);
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Base layer — the prototype's global element styling, expressed against the
+   imported tokens rather than re-declaring any of their values.
+   --------------------------------------------------------------------------- */
+@layer base {
+  body {
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+  }
+
+  a {
+    color: var(--color-indigo-600);
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: var(--color-indigo-700);
+  }
+
+  ::selection {
+    background: var(--color-indigo-200);
+  }
+
+  /* Never leave the browser's default focus ring — the design system themes it. */
+  :focus-visible {
+    outline: 2px solid var(--color-indigo-500);
+    outline-offset: 2px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   The signature gradients. psu-tokens.css defines them as :root variables and
+   notes they are "not tokenizable in @theme — use as utilities/classes"; these
+   are those utilities, pointing at the variables rather than the colours.
+   --------------------------------------------------------------------------- */
+@utility bg-brand-gradient {
+  background-image: var(--gradient-brand);
+}
+
+@utility bg-primary-gradient {
+  background-image: var(--gradient-primary);
+}
+
+@utility bg-success-gradient {
+  background-image: var(--gradient-success);
+}

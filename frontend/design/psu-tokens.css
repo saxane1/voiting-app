@@ -1,0 +1,104 @@
+/* ============================================================
+   PSU Vote — Design Tokens (Tailwind v4)
+   Drop this into your Next.js app's global stylesheet.
+   Usage: import "tailwindcss";  then paste the @theme block.
+   Every token below is already used by the prototype
+   (they map 1:1 to the CSS variables in PSU Vote.dc.html).
+   ============================================================ */
+
+@theme {
+  /* ---- Brand: Indigo (anchor #6366f1) ---- */
+  --color-indigo-50:  #eef2ff;
+  --color-indigo-100: #e0e7ff;
+  --color-indigo-200: #c7d2fe;
+  --color-indigo-300: #a5b4fc;
+  --color-indigo-400: #818cf8;
+  --color-indigo-500: #6366f1;  /* primary anchor */
+  --color-indigo-600: #4f46e5;  /* primary action / hover */
+  --color-indigo-700: #4338ca;  /* pressed / text-on-tint */
+  --color-indigo-800: #3730a3;
+  --color-indigo-900: #312e81;
+  --color-indigo-950: #1e1b4b;  /* ink / admin sidebar */
+
+  /* ---- Supporting accent (gradients, avatars) ---- */
+  --color-violet-500: #8b5cf6;
+  --color-sky-500:    #0ea5e9;
+
+  /* ---- Neutrals: Slate ---- */
+  --color-slate-50:  #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+
+  /* ---- Semantic ---- */
+  --color-success-50:  #ecfdf5;
+  --color-success-500: #10b981;
+  --color-success-600: #059669;
+  --color-success-700: #047857;
+  --color-warning-50:  #fffbeb;
+  --color-warning-500: #f59e0b;
+  --color-warning-700: #b45309;
+  --color-error-50:    #fff1f2;
+  --color-error-500:   #f43f5e;
+  --color-error-600:   #e11d48;
+  --color-error-700:   #be123c;
+
+  /* ---- App surfaces ---- */
+  --color-bg:      #f5f6fb;  /* page background */
+  --color-surface: #ffffff;  /* cards */
+  --color-ink:     #1e1b4b;  /* primary text */
+  --color-muted:   #64748b;  /* secondary text */
+  --color-line:    #e8eaf3;  /* borders / dividers */
+
+  /* ---- Type ---- */
+  --font-display: "Space Grotesk", system-ui, sans-serif;  /* headings, numerals */
+  --font-body:    "Public Sans", system-ui, sans-serif;    /* body, UI */
+
+  /* Type scale (px) — display 44 · h1 32 · h2 24 · h3 20 ·
+     body-lg 18 · body 16 · sm 14 · xs 13 · micro 11
+     min sizes: mobile body 14, hit target 44px */
+  --text-micro: 0.6875rem; /* 11 */
+  --text-xs:    0.8125rem; /* 13 */
+  --text-sm:    0.875rem;  /* 14 */
+  --text-base:  1rem;      /* 16 */
+  --text-lg:    1.125rem;  /* 18 */
+  --text-h3:    1.25rem;   /* 20 */
+  --text-h2:    1.5rem;    /* 24 */
+  --text-h1:    2rem;      /* 32 */
+  --text-display: 2.75rem; /* 44 */
+
+  /* ---- Radii ---- */
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
+  --radius-2xl:  28px;
+  --radius-pill: 999px;
+
+  /* ---- Shadows (indigo-tinted, tuned to the light ground) ---- */
+  --shadow-xs:   0 1px 2px rgba(30,27,75,.06);
+  --shadow-sm:   0 1px 3px rgba(30,27,75,.08), 0 1px 2px rgba(30,27,75,.04);
+  --shadow-md:   0 6px 20px -6px rgba(30,27,75,.14), 0 2px 6px -2px rgba(30,27,75,.06);
+  --shadow-lg:   0 20px 48px -14px rgba(49,46,129,.24), 0 6px 14px -8px rgba(30,27,75,.12);
+  --shadow-glow: 0 10px 28px -8px rgba(99,102,241,.5);   /* primary buttons */
+
+  /* ---- Spacing base (Tailwind multiplies this by its scale) ---- */
+  --spacing: 0.25rem; /* 4px grid */
+}
+
+/* Signature gradients (not tokenizable in @theme — use as utilities/classes) */
+:root {
+  --gradient-brand:   linear-gradient(150deg, #4338ca, #4f46e5 42%, #8b5cf6); /* hero / profile */
+  --gradient-primary: linear-gradient(180deg, #6366f1, #4f46e5);             /* buttons */
+  --gradient-success: linear-gradient(150deg, #10b981, #059669);            /* recorded state */
+}
+
+/* Fonts (Next.js: prefer next/font, or keep this <link>):
+   https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Public+Sans:wght@400;500;600;700;800&display=swap
+*/

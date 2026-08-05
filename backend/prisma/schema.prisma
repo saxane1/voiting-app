@@ -1,0 +1,235 @@
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  STUDENT
+  ADMIN // election commission / university administration
+  AUDITOR // read-only oversight (optional)
+}
+
+enum RevokeReason {
+  ROTATED // replaced by a newer token, OR killed as part of a compromised family
+  LOGGED_OUT // user ended this session deliberately — benign, not a theft signal
+  DEACTIVATED // account was deactivated; sessions killed on next refresh
+}
+
+enum ElectionType {
+  FACULTY // one faculty leader; scoped to that faculty's students
+  UNIVERSITY // Gudoomiye; all students vote
+}
+
+enum ElectionStatus {
+  DRAFT // being set up
+  SCHEDULED // configured, not open yet
+  OPEN // voting window active
+  CLOSED // window ended, results not yet public
+  PUBLISHED // results released
+}
+
+// ---------------------- Identity ----------------------
+
+model Faculty {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String?  @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  students  User[]     @relation("FacultyStudents")
+  elections Election[]
+
+  @@map("faculties")
+}
+
+model User {
+  id    String @id @default(uuid())
+  email String @unique
+  name  String
+  role  Role   @default(STUDENT)
+
+  // Student-only fields (null for ADMIN/AUDITOR). Enforced in app logic.
+  studentId String?  @unique @map("student_id")
+  facultyId String?  @map("faculty_id")
+  faculty   Faculty? @relation("FacultyStudents", fields: [facultyId], references: [id])
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  otpTokens        OtpToken[]     @relation("OtpOwner")
+  issuedOtps       OtpToken[]     @relation("OtpIssuedBy") // codes an admin issued manually
+  refreshTokens    RefreshToken[]
+  candidacies      Candidate[] // elections this user runs in
+  voteReceipts     VoteReceipt[] // participation only (NOT linked to ballots)
+  createdElections Election[]     @relation("ElectionCreatedBy")
+  auditLogs        AuditLog[]     @relation("AuditActor")
+
+  @@index([role])
+  @@index([facultyId])
+  @@map("users") // avoid reserved keyword conflict
+}
+
+// ---------------------- Auth (passwordless OTP -> JWT) ----------------------
+
+model OtpToken {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  user   User   @relation("OtpOwner", fields: [userId], references: [id], onDelete: Cascade)
+
+  codeHash   String    @map("code_hash") // HASH of the OTP, never plaintext
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at") // single-use: set once verified
+  attempts   Int       @default(0) // cap verification tries
+
+  // Availability fallback: set when an ADMIN manually issues a login code
+  issuedByAdminId String? @map("issued_by_admin_id")
+  issuedByAdmin   User?   @relation("OtpIssuedBy", fields: [issuedByAdminId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt]) // supports per-EMAIL rate limiting
+  @@map("otp_tokens")
+}
+
+model RefreshToken {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash String   @unique @map("token_hash") // HASH, never the raw token
+  expiresAt DateTime @map("expires_at")
+
+  // null revokedAt = still active. revokedReason distinguishes an innocent
+  // logout replay from a genuine rotated-token reuse (the theft signal).
+  revokedAt         DateTime?     @map("revoked_at")
+  revokedReason     RevokeReason? @map("revoked_reason")
+  replacedByTokenId String?       @map("replaced_by_token_id") // rotation chain
+  userAgent         String?   @map("user_agent")
+  ip                String?
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ---------------------- Elections ----------------------
+
+model Election {
+  id        String       @id @default(uuid())
+  title     String
+  type      ElectionType
+  facultyId String?      @map("faculty_id") // set for FACULTY type; null for UNIVERSITY (Gudoomiye)
+  faculty   Faculty?     @relation(fields: [facultyId], references: [id])
+
+  startAt DateTime @map("start_at") // voting opens
+  endAt   DateTime @map("end_at") // voting closes
+
+  status             ElectionStatus @default(DRAFT)
+  resultsPublishedAt DateTime?      @map("results_published_at")
+  eligibleCount      Int?           @map("eligible_count") // frozen at OPEN; turnout denominator
+
+  createdById String @map("created_by_id")
+  createdBy   User   @relation("ElectionCreatedBy", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  candidates   Candidate[]
+  voteReceipts VoteReceipt[]
+  votes        Vote[]
+
+  @@index([type, status])
+  @@index([facultyId])
+  @@map("elections")
+}
+
+model Candidate {
+  id         String   @id @default(uuid())
+  electionId String   @map("election_id")
+  election   Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+
+  userId String @map("user_id") // the student running (admin-registered)
+  user   User   @relation(fields: [userId], references: [id])
+
+  manifesto String?
+  photoUrl  String?  @map("photo_url")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  votes Vote[]
+
+  @@unique([electionId, userId]) // no duplicate candidacy in one election
+  @@index([electionId])
+  @@map("candidates")
+}
+
+// ---------------------- Voting: the secrecy split ----------------------
+
+// PARTICIPATION record. Proves THAT a user voted -> blocks double-voting.
+// Deliberately has NO link to the Vote (ballot) table.
+model VoteReceipt {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id])
+  electionId String   @map("election_id")
+  election   Election @relation(fields: [electionId], references: [id])
+
+  // ⚠ FLOORED TO THE HOUR (UTC) AT WRITE TIME — see src/utils/time.js.
+  // A precise timestamp here would let an insider sort voters by time and align
+  // them 1:1 with the hash chain's ballot order, deanonymising every vote.
+  // The @default(now()) was REMOVED deliberately: without it, any code path that
+  // forgets to pass a coarsened value fails loudly instead of silently writing
+  // a precise timestamp back into the table.
+  votedAt DateTime @map("voted_at")
+
+  @@unique([userId, electionId]) // one person, one vote per election
+  @@index([electionId])
+  @@map("vote_receipts")
+}
+
+// The BALLOT. Records the CHOICE only.
+// NO userId and NO precise timestamp -> nothing to correlate back to a voter.
+// Random UUID id + hash chain -> unlinkable AND tamper-evident.
+model Vote {
+  id          String    @id @default(uuid()) // random, non-sequential
+  electionId  String    @map("election_id")
+  election    Election  @relation(fields: [electionId], references: [id])
+  candidateId String    @map("candidate_id")
+  candidate   Candidate @relation(fields: [candidateId], references: [id])
+
+  // Tamper-evidence: hash = SHA256(prevHash + electionId + candidateId)
+  // NON-null: the first vote in an election uses the "GENESIS" sentinel, so the
+  // @@unique below is actually enforced (Postgres compares NULLs as distinct).
+  prevHash String @map("prev_hash")
+  hash     String @unique
+
+  @@unique([electionId, prevHash]) // one successor per link -> no forked chain
+  @@index([electionId])
+  @@index([candidateId])
+  @@map("votes")
+}
+
+// ---------------------- Audit ----------------------
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorUserId String?  @map("actor_user_id")
+  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id])
+  action      String // e.g. "STUDENT_CREATED", "ELECTION_OPENED", "OTP_ISSUED"
+  entityType  String?  @map("entity_type")
+  entityId    String?  @map("entity_id")
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([actorUserId])
+  @@index([entityType, entityId])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
