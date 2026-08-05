@@ -9,11 +9,21 @@ import Link from "next/link";
  *
  * It sticks to `top-0` on desktop and to `top-14` on drawer widths, where the
  * admin topbar already occupies the first 56px.
+ *
+ * `sticky` is opt-out for exactly one caller: the F8 audit screen reuses this
+ * header but lives outside the admin shell, under a top bar that is itself
+ * sticky and whose height changes as it wraps. Two stacked sticky elements with
+ * a variable offset between them is a layout bug waiting to happen, so that
+ * screen scrolls its header away instead. Every admin screen keeps the default.
  */
 
-export default function PageHeader({ title, subtitle, backHref, backLabel, children }) {
+export default function PageHeader({ title, subtitle, backHref, backLabel, sticky = true, children }) {
   return (
-    <div className="border-line bg-bg/85 sticky top-0 z-30 border-b px-4 py-4 backdrop-blur-[10px] max-[919px]:top-14 min-[920px]:px-7 min-[920px]:py-5">
+    <div
+      className={`border-line bg-bg/85 border-b px-4 py-4 backdrop-blur-[10px] min-[920px]:px-7 min-[920px]:py-5 ${
+        sticky ? "sticky top-0 z-30 max-[919px]:top-14" : ""
+      }`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           {backHref && (

@@ -1,14 +1,14 @@
-import ModulePlaceholder from "@/components/adminstration/module-placeholder";
+import CandidatesIndexPage from "@/components/adminstration/candidates/candidates-index-page";
+
+/**
+ * The Candidates nav destination. Candidates belong to an election, so this
+ * picks one and hands off to /adminstration/elections/[id]/candidates.
+ */
 
 export const metadata = {
   title: "Candidates — PSU Online Voting System",
 };
 
 export default function Page() {
-  return (
-    <ModulePlaceholder title="Candidates" subtitle="Who appears on each ballot" module="F6">
-      Registering an existing student as a candidate for a faculty seat or for Gudoomiye lands
-      here.
-    </ModulePlaceholder>
-  );
+  return <CandidatesIndexPage />;
 }

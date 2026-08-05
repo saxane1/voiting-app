@@ -26,6 +26,20 @@ const TONE = {
     iconWrap: "bg-indigo-50 text-indigo-600",
     confirm: "bg-primary-gradient text-white shadow-glow hover:brightness-105",
   },
+  // Starting something (opening voting): consequential but not destructive, and
+  // green in the prototype's own lifecycle panel.
+  success: {
+    iconWrap: "bg-success-50 text-success-600",
+    confirm:
+      "bg-success-gradient text-white shadow-[0_10px_28px_-8px_rgba(16,185,129,.5)] hover:brightness-105",
+  },
+  // Irreversible but not destructive — marking a result final. Red would read
+  // as "this deletes something", which is exactly the wrong idea to give.
+  warning: {
+    iconWrap: "bg-warning-50 text-warning-700",
+    confirm:
+      "bg-warning-500 text-white shadow-[0_10px_28px_-8px_rgba(245,158,11,.5)] hover:brightness-105",
+  },
 };
 
 export default function ConfirmDialog({

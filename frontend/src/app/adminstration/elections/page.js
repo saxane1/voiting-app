@@ -1,14 +1,15 @@
-import ModulePlaceholder from "@/components/adminstration/module-placeholder";
+import ElectionsPage from "@/components/adminstration/elections/elections-page";
+
+/**
+ * Route parent for the elections list. Thin by design: the access token lives
+ * in browser memory only, so a server component cannot fetch on the admin's
+ * behalf. The ADMIN guard and the shell come from app/adminstration/layout.js.
+ */
 
 export const metadata = {
   title: "Elections — PSU Online Voting System",
 };
 
 export default function Page() {
-  return (
-    <ModulePlaceholder title="Elections" subtitle="Faculty ballots and the Gudoomiye ballot" module="F5">
-      Creating an election, setting its open and close window, and opening or closing voting land
-      here.
-    </ModulePlaceholder>
-  );
+  return <ElectionsPage />;
 }

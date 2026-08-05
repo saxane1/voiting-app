@@ -1,4 +1,5 @@
 import { apiErrorCode, apiErrorMessage } from "./api-error";
+import { CANDIDATE_PICKER_ERROR_CODES } from "./candidate-rules";
 
 /**
  * Turns a backend failure into per-field form errors, so a rejection lands on
@@ -19,13 +20,51 @@ import { apiErrorCode, apiErrorMessage } from "./api-error";
  *        happens to contain the word "studentid" cannot be misfiled.
  */
 
-const CONFLICT_PATTERNS = [
-  [/^A user with email\b/i, "email"],
-  [/^A student with studentId\b/i, "studentId"],
-];
+/**
+ * 409s that name their field only in prose, per error code.
+ *
+ * Each controller picks one of two sentences and the wording is the only thing
+ * that says which unique column collided. Patterns are anchored at the start of
+ * the string so a value that happens to contain one of these words (an email
+ * like "studentid@psu.edu.so", a faculty named "Faculty with code X") cannot be
+ * misfiled.
+ */
+const CONFLICT_FIELD_PATTERNS = {
+  STUDENT_ALREADY_EXISTS: [
+    [/^A user with email\b/i, "email"],
+    [/^A student with studentId\b/i, "studentId"],
+  ],
+  FACULTY_ALREADY_EXISTS: [
+    [/^A faculty with code\b/i, "code"],
+    [/^A faculty named\b/i, "name"],
+  ],
+};
 
-/** Codes whose whole meaning is "the faculty you picked is wrong". */
-const FACULTY_CODES = new Set(["FACULTY_NOT_FOUND"]);
+/**
+ * Error codes that carry no `details` but whose whole meaning IS one field.
+ *
+ * INVALID_ELECTION_SCOPE covers all three type/faculty refusals a FACULTY or
+ * UNIVERSITY election can draw ("requires a facultyId", "must not have a
+ * facultyId", "No faculty exists with that facultyId") — every one of them is
+ * about the faculty the admin picked, or failed to.
+ *
+ * INVALID_ELECTION_WINDOW is the PATCH-time endAt<=startAt refusal and the
+ * open-time "window has already ended". Both are answered on endAt, which is
+ * the field the admin has to move in either case.
+ *
+ * The five candidate codes all answer the same question — "that student cannot
+ * be attached to this election" — so they land on `userId`, the field holding
+ * the chosen student. CANDIDATES_LOCKED is deliberately NOT here: it is about
+ * the election's status rather than the student, and the add form is about to
+ * be replaced by a read-only roster, so it must surface at screen level.
+ */
+const FIELD_BY_CODE = {
+  FACULTY_NOT_FOUND: "facultyId",
+  INVALID_ELECTION_SCOPE: "facultyId",
+  INVALID_ELECTION_WINDOW: "endAt",
+
+  ...Object.fromEntries(CANDIDATE_PICKER_ERROR_CODES.map((code) => [code, "userId"])),
+};
 
 /**
  * @returns {{ fields: Record<string,string>, formError: string|null }}
@@ -59,12 +98,12 @@ export function fieldErrorsFromApi(error, fallback = "Something went wrong. Plea
     };
   }
 
-  if (FACULTY_CODES.has(code)) {
-    return { fields: { facultyId: message }, formError: null };
+  if (FIELD_BY_CODE[code]) {
+    return { fields: { [FIELD_BY_CODE[code]]: message }, formError: null };
   }
 
-  if (code === "STUDENT_ALREADY_EXISTS") {
-    for (const [pattern, field] of CONFLICT_PATTERNS) {
+  if (CONFLICT_FIELD_PATTERNS[code]) {
+    for (const [pattern, field] of CONFLICT_FIELD_PATTERNS[code]) {
       if (pattern.test(message)) {
         return { fields: { [field]: message }, formError: null };
       }
