@@ -104,7 +104,7 @@ export default function BallotsDashboard() {
   return (
     <div className="animate-fade-up">
       <p className="text-muted m-0 text-[13px] font-medium">Welcome back,</p>
-      <h1 className="font-display text-ink m-0 mt-0.5 mb-1 text-2xl font-bold tracking-[-0.02em]">
+      <h1 className="font-display text-ink m-0 mt-0.5 mb-1 text-2xl font-bold tracking-[-0.02em] md:text-[28px]">
         {firstName || "Student"}
       </h1>
       <p className="text-muted m-0 mb-[18px] text-[13.5px]">
@@ -121,7 +121,7 @@ export default function BallotsDashboard() {
         )}
       </p>
 
-      <div className="mb-[22px] flex gap-2.5">
+      <div className="mb-[22px] flex gap-2.5 md:gap-4">
         <StatTile value={openToVote} label="To vote" tone="text-indigo-600" />
 
         {/* Never a number this query has not returned. See the note at the top
@@ -143,7 +143,7 @@ export default function BallotsDashboard() {
           When the commission opens a ballot you are eligible for, it will appear here.
         </EmptyState>
       ) : (
-        <div className="flex flex-col gap-3.5">
+        <div className="flex flex-col gap-3.5 md:gap-4">
           {ballots.map((ballot) => (
             <BallotCard key={ballot.id} ballot={ballot} />
           ))}
@@ -170,7 +170,7 @@ export default function BallotsDashboard() {
  */
 function StatTile({ value, label, tone, isPending = false, isError = false }) {
   return (
-    <div className="border-line bg-surface flex-1 rounded-lg border p-3.5">
+    <div className="border-line bg-surface flex-1 rounded-lg border p-3.5 md:p-5">
       {isPending ? (
         <>
           <span
@@ -186,7 +186,7 @@ function StatTile({ value, label, tone, isPending = false, isError = false }) {
           <span className="sr-only">Not available</span>
         </div>
       ) : (
-        <div className={`font-display text-[22px] font-bold ${tone}`}>{value}</div>
+        <div className={`font-display text-[22px] font-bold md:text-[27px] ${tone}`}>{value}</div>
       )}
 
       <div className="text-muted text-xs">{label}</div>

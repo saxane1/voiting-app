@@ -65,7 +65,7 @@ export default function BallotCard({ ballot }) {
   const TypeIcon = isUniversity ? Landmark : GraduationCap;
 
   return (
-    <article className="border-line bg-surface relative overflow-hidden rounded-xl border p-4 shadow-sm">
+    <article className="border-line bg-surface relative overflow-hidden rounded-xl border p-4 shadow-sm md:p-5">
       <div className={`absolute inset-x-0 top-0 h-[3px] ${presentation.stripe}`} aria-hidden="true" />
 
       <div className="mb-3 flex items-start justify-between gap-2.5">

@@ -45,7 +45,7 @@ export default function BallotForm({
         Open for voting
       </p>
 
-      <h1 className="font-display text-ink m-0 mb-1 text-[22px] leading-[1.15] font-bold tracking-[-0.02em]">
+      <h1 className="font-display text-ink m-0 mb-1 text-[22px] leading-[1.15] font-bold tracking-[-0.02em] md:text-[26px]">
         {election.title}
       </h1>
       <p className="text-muted m-0 mb-[18px] text-[13.5px]">

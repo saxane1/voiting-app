@@ -268,7 +268,15 @@ export async function verifyOtp(req, res) {
 
   const user = await prisma.user.findUnique({
     where: { email },
-    select: { id: true, email: true, name: true, role: true, isActive: true },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      studentId: true,
+      facultyId: true,
+      isActive: true,
+    },
   });
 
   if (!user) {
@@ -377,12 +385,17 @@ export async function verifyOtp(req, res) {
     meta: { ...requestContext(req), role: user.role },
   });
 
+  // Same identity shape as GET /auth/me, so the client's in-memory user is
+  // complete from the moment of login rather than only after a reload has gone
+  // through /auth/me. studentId and facultyId are null for ADMIN/AUDITOR.
   return res.status(200).json({
     user: {
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
+      studentId: user.studentId,
+      facultyId: user.facultyId,
     },
     accessToken,
   });
@@ -522,7 +535,15 @@ export async function refresh(req, res) {
   // caught, since requireAuth deliberately does not touch the database.
   const user = await prisma.user.findUnique({
     where: { id: stored.userId },
-    select: { id: true, email: true, name: true, role: true, isActive: true },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      studentId: true,
+      facultyId: true,
+      isActive: true,
+    },
   });
 
   if (!user || !user.isActive) {
@@ -585,12 +606,17 @@ export async function refresh(req, res) {
   res.locals.refreshOutcome = REFRESH_OUTCOMES.ROTATED;
   res.locals.refreshUserId = user.id;
 
+  // Same identity shape as GET /auth/me, so the client's in-memory user is
+  // complete from the moment of login rather than only after a reload has gone
+  // through /auth/me. studentId and facultyId are null for ADMIN/AUDITOR.
   return res.status(200).json({
     user: {
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
+      studentId: user.studentId,
+      facultyId: user.facultyId,
     },
     accessToken,
   });
@@ -648,7 +674,15 @@ export async function logout(req, res) {
 export async function me(req, res) {
   const user = await prisma.user.findUnique({
     where: { id: req.user.id },
-    select: { id: true, email: true, name: true, role: true, facultyId: true, isActive: true },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      studentId: true,
+      facultyId: true,
+      isActive: true,
+    },
   });
 
   // A still-valid access token can outlive the account it was issued for, since
@@ -665,6 +699,7 @@ export async function me(req, res) {
       email: user.email,
       name: user.name,
       role: user.role,
+      studentId: user.studentId,
       facultyId: user.facultyId,
     },
   });

@@ -17,7 +17,7 @@ import CandidateAvatar from "./candidate-avatar";
 export default function CandidateOption({ candidate, checked, onSelect, disabled }) {
   return (
     <label
-      className={`flex cursor-pointer items-center gap-3 rounded-xl border-[1.5px] p-3.5 transition has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-indigo-100 ${
+      className={`flex cursor-pointer items-center gap-3 rounded-xl border-[1.5px] p-3.5 transition has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-indigo-100 md:gap-4 md:p-4 ${
         checked
           ? "border-indigo-500 bg-indigo-50"
           : "border-line bg-surface hover:border-indigo-200 hover:bg-slate-50"
