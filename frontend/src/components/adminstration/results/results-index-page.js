@@ -1,77 +1,111 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo } from "react";
 
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Building2, ChartColumn, ChevronRight, GraduationCap, Lock } from "lucide-react";
-import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { EmptyState, ErrorState, LoadingState } from "@/components/common/query-states";
-import { ELECTION_STATUS, ELECTION_TYPE, electionScopeText } from "@/utils/election-labels";
+import { ELECTION_STATUS, electionScopeText } from "@/utils/election-labels";
 import { fetchElections } from "@/utils/elections-api";
 import { queryKeys } from "@/utils/query-keys";
 
 import PageHeader from "../page-header";
-import ElectionStatusBadge from "../elections/election-status-badge";
-import ElectionWindow from "../elections/election-window";
+import ResultsElectionPicker from "./results-election-picker";
+import ResultsPanel from "./results-panel";
 
 /**
- * Pick an election to see its results.
+ * Live Results — one election at a time.
  *
- * NO TALLIES ON THIS SCREEN, deliberately. A list of every election with its
- * current standing beside it is a results leak waiting to be screenshotted, and
- * it would also mean firing an aggregate query per row on every page load. The
- * numbers live one click away, on a screen whose access is audited: every
- * GET /results writes a RESULTS_VIEWED entry naming the admin who looked and
- * the total they saw. That record only means something if looking is a
- * deliberate act.
+ * The switcher replaced a grid of cards that linked away to each election. The
+ * reason for the change is that a commission watches ONE race at a time during a
+ * voting day, and a wall of cards made them click out and back for every glance.
+ * The reason the grid did NOT show tallies is unchanged and still holds: a list
+ * of every election with its current standing beside it is a results leak
+ * waiting to be screenshotted, and it would fire an aggregate query per row on
+ * every page load. So the switcher shows exactly one election's numbers, chosen
+ * deliberately, and asks the API for exactly that one.
  *
- * Status IS shown — it says whether a result is live, final or not yet started,
- * which is navigation, not a result.
+ * ADMIN-ONLY, inherited. app/adminstration/layout.js wraps everything below it
+ * in <RequireRole roles={["ADMIN"]}>, every /elections/:id/results endpoint is
+ * requireAuth + requireRole("ADMIN") server-side, and the socket refuses a
+ * non-admin at the handshake. There is no public results page in this system and
+ * there will not be one — the university announces officially, off-system
+ * (Project-Context §9). Nothing on this screen is reachable by a student.
+ *
+ * THE SELECTION LIVES IN THE URL (?election=<id>) rather than in state, so a
+ * refresh, a bookmark or a link pasted into the commission's chat all reopen the
+ * same election. It is a `replace`, not a `push`: flicking between two ballots
+ * should not build twenty history entries to back out of.
  */
 
 const PAGE_SIZE = 100;
-
-const STATUS_OPTIONS = [
-  { value: "", label: "All elections" },
-  { value: ELECTION_STATUS.OPEN, label: "Open — live now" },
-  { value: ELECTION_STATUS.CLOSED, label: "Closed" },
-  { value: ELECTION_STATUS.PUBLISHED, label: "Final" },
-  { value: ELECTION_STATUS.SCHEDULED, label: "Scheduled" },
-  { value: ELECTION_STATUS.DRAFT, label: "Drafts" },
-];
+const SELECTION_PARAM = "election";
 
 export default function ResultsIndexPage() {
-  const [status, setStatus] = useState("");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const params = { page: 1, limit: PAGE_SIZE, status };
+  const params = { page: 1, limit: PAGE_SIZE };
 
   const electionsQuery = useQuery({
     queryKey: queryKeys.electionList(params),
     queryFn: () => fetchElections(params),
-    placeholderData: keepPreviousData,
   });
 
-  const elections = electionsQuery.data?.elections ?? [];
+  const elections = useMemo(
+    () => electionsQuery.data?.elections ?? [],
+    [electionsQuery.data]
+  );
+
+  const requestedId = searchParams.get(SELECTION_PARAM);
+
+  /**
+   * The election actually shown.
+   *
+   * The URL wins when it names an election that exists. It is validated against
+   * the list rather than trusted, so a stale bookmark to a deleted election
+   * falls back to a sensible default instead of rendering a panel that 404s.
+   *
+   * Default: the first OPEN election — during a voting day that is the one being
+   * watched — otherwise the most recent, the list being ordered createdAt desc
+   * by the API.
+   */
+  const selected = useMemo(() => {
+    if (elections.length === 0) return null;
+
+    const requested = elections.find((election) => election.id === requestedId);
+
+    if (requested) return requested;
+
+    return elections.find((election) => election.status === ELECTION_STATUS.OPEN) ?? elections[0];
+  }, [elections, requestedId]);
+
+  function selectElection(id) {
+    const next = new URLSearchParams(searchParams);
+
+    next.set(SELECTION_PARAM, id);
+
+    // scroll:false — the picker sits at the top and the panel changes beneath
+    // it; jumping to the top of a page you are already at the top of is a jolt
+    // for nothing.
+    router.replace(`${pathname}?${next}`, { scroll: false });
+  }
 
   return (
     <>
       <PageHeader
-        title="Results"
-        subtitle="Aggregate tallies, turnout and ballot integrity. Admin-only — never shown to students."
+        title="Live Results"
+        subtitle="Aggregate tallies, turnout and vote share. Commission view only — never shown to students."
       >
-        <select
-          value={status}
-          onChange={(event) => setStatus(event.target.value)}
-          aria-label="Filter elections by status"
-          className="text-ink cursor-pointer rounded-[10px] border-[1.5px] border-slate-200 bg-white px-3 py-2.5 text-[13.5px] outline-none transition focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-100"
-        >
-          {STATUS_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        {elections.length > 0 && (
+          <ResultsElectionPicker
+            elections={elections}
+            selectedId={selected?.id ?? null}
+            onSelect={selectElection}
+          />
+        )}
       </PageHeader>
 
       <div className="px-4 py-6 min-[920px]:px-7">
@@ -83,70 +117,29 @@ export default function ResultsIndexPage() {
             onRetry={() => electionsQuery.refetch()}
             isRetrying={electionsQuery.isFetching}
           />
-        ) : elections.length === 0 ? (
+        ) : !selected ? (
           <div className="border-line bg-surface rounded-lg border shadow-sm">
-            <EmptyState title={status ? "No elections with that status." : "No elections yet."}>
-              {status
-                ? "Try a different status."
-                : "Results appear once an election exists and has been opened."}
+            <EmptyState title="No elections yet.">
+              Results appear here once an election exists. Create one, add its candidates, then
+              open voting.
             </EmptyState>
           </div>
         ) : (
-          <ul className="m-0 grid list-none gap-3 p-0 min-[760px]:grid-cols-2 min-[1240px]:grid-cols-3">
-            {elections.map((election) => (
-              <li key={election.id}>
-                <ElectionCard election={election} />
-              </li>
-            ))}
-          </ul>
+          <>
+            <div className="mb-5">
+              <h2 className="font-display text-ink m-0 text-lg font-bold tracking-[-0.01em]">
+                {selected.title}
+              </h2>
+              <p className="text-muted m-0 mt-0.5 text-[13px]">{electionScopeText(selected)}</p>
+            </div>
+
+            {/* Keyed on the election so a switch remounts the panel outright:
+                every query, socket room and derived value starts clean, and one
+                election's numbers can never be painted under another's name. */}
+            <ResultsPanel key={selected.id} electionId={selected.id} election={selected} />
+          </>
         )}
       </div>
     </>
-  );
-}
-
-function ElectionCard({ election }) {
-  const Icon = election.type === ELECTION_TYPE.UNIVERSITY ? GraduationCap : Building2;
-  const neverOpened =
-    election.status === ELECTION_STATUS.DRAFT || election.status === ELECTION_STATUS.SCHEDULED;
-
-  return (
-    <Link
-      href={`/adminstration/results/${election.id}`}
-      className="border-line bg-surface flex h-full flex-col rounded-lg border p-4 shadow-xs transition hover:border-indigo-200 hover:bg-indigo-50/40"
-    >
-      <div className="flex items-start gap-3">
-        <span className="grid size-10 flex-none place-items-center rounded-[10px] bg-indigo-50 text-indigo-600">
-          <Icon size={19} aria-hidden="true" />
-        </span>
-
-        <div className="min-w-0 flex-1">
-          <p className="text-ink m-0 truncate text-[13.5px] font-semibold">{election.title}</p>
-          <p className="text-muted m-0 mt-0.5 truncate text-xs">{electionScopeText(election)}</p>
-        </div>
-
-        <ChevronRight size={18} className="mt-1 flex-none text-slate-400" aria-hidden="true" />
-      </div>
-
-      <p className="text-muted m-0 mt-2.5 overflow-x-auto text-[11.5px]">
-        <ElectionWindow startAt={election.startAt} endAt={election.endAt} />
-      </p>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <ElectionStatusBadge status={election.status} />
-
-        {neverOpened ? (
-          <span className="text-muted rounded-pill inline-flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 text-[11.5px] font-semibold">
-            <Lock size={12} aria-hidden="true" />
-            No votes yet
-          </span>
-        ) : (
-          <span className="rounded-pill inline-flex items-center gap-1.5 bg-indigo-50 px-2.5 py-1 text-[11.5px] font-semibold text-indigo-700">
-            <ChartColumn size={12} aria-hidden="true" />
-            View results
-          </span>
-        )}
-      </div>
-    </Link>
   );
 }

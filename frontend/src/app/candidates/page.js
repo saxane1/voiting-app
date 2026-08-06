@@ -1,10 +1,13 @@
+import { redirect } from "next/navigation";
 
+/**
+ * The candidate roster moved under the guarded administration area in F6.
+ *
+ * This route was an ungated pre-F0 scaffold page. Rather than leave it serving
+ * placeholder content to anyone who keeps the link, it now forwards to the real
+ * screen — where app/adminstration/layout.js applies the ADMIN guard.
+ */
 
-export default function page() {
-    return (
-        <div className="flex flex-col items-center justify-center h-screen">
-            <h1 className="text-4xl font-bold mb-4">Candidates Page</h1>
-            <p className="text-lg text-gray-600">Welcome to the Candidates section. Here you can view and manage faculty information.</p>
-        </div>
-    );
+export default function Page() {
+  redirect("/adminstration/candidates");
 }

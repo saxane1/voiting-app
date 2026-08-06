@@ -72,10 +72,22 @@ export default function TallyChart({ tallies }) {
             tick={{ fill: COLOR.axis, fontSize: 12 }}
           />
 
+          {/* A ZERO IS A RESULT, AND HAS TO LOOK LIKE ONE. recharts draws no
+              rectangle at all for a 0 — and with no rectangle there is nothing
+              for the value label to sit beside — so a candidate on no votes came
+              out as an empty row with a name and blank space next to it. That
+              reads as a chart that failed to load, not as a candidate nobody
+              voted for, which is a materially different claim to make about a
+              person standing in an election. minPointSize gives every bar a
+              2px stub so the row is visibly present and its "0" is drawn; the
+              stub keeps the slate zero colour from COLOR.zero, so it can still
+              never be mistaken for a bar with votes in it. The authoritative
+              figure is in <TallyTable> beside this either way. */}
           <Bar
             dataKey="voteCount"
             radius={[0, 6, 6, 0]}
             isAnimationActive={false}
+            minPointSize={2}
             label={{ position: "right", fill: "#1e1b4b", fontSize: 12, fontWeight: 700 }}
           >
             {data.map((row) => (

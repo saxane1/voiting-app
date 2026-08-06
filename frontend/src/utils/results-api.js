@@ -35,6 +35,31 @@ import api from "./axios";
  * `withCredentials` for the refresh cookie, single-flight 401 retry.
  */
 
+/**
+ * How long a successful read of an audited endpoint may be reused before a
+ * caller asks again.
+ *
+ * ALL THREE GETS BELOW WRITE AN AUDIT ROW PER CALL — RESULTS_VIEWED,
+ * TURNOUT_VIEWED, INTEGRITY_CHECKED. That is the point of them: the record of
+ * who looked at a result only means something if looking is deliberate. It also
+ * means a caller that re-reads on every network hiccup does not just waste a
+ * request, it writes a row, and enough of those bury the entries that matter.
+ * Project-Context §10 assumes weak connections are the norm here rather than the
+ * exception, so that is a realistic failure, not a theoretical one.
+ *
+ * Pinned rather than inherited from the QueryClient default deliberately: this
+ * value is an AUDIT-VOLUME policy, not a freshness preference, and it must not
+ * change as a side effect of someone retuning app-wide caching. Lowering it
+ * increases audit writes on a flapping connection.
+ *
+ * It costs no visible liveness. These screens are kept current by the B8 socket,
+ * and `join-election` pushes an immediate authoritative snapshot on every
+ * (re)connect — built by the same computeTallies/computeTurnout pair as the REST
+ * reads (backend/src/socket/election-events.js). The REST call is a correctness
+ * reseed behind that, not the thing the numbers tick from.
+ */
+export const AUDITED_STALE_MS = 30_000;
+
 export async function fetchResults(electionId) {
   const { data } = await api.get(`/elections/${electionId}/results`);
 
