@@ -32,7 +32,7 @@ export const ADMIN_NAV = [
   { href: "/adminstration/students", label: "Students", icon: Users },
   { href: "/adminstration/faculties", label: "Faculties", icon: Building2 },
   { href: "/adminstration/elections", label: "Elections", icon: Vote },
-  { href: "/adminstration/candidates", label: "Candidates", icon: GraduationCap },
+  // { href: "/adminstration/candidates", label: "Candidates", icon: GraduationCap },
   { href: "/adminstration/results", label: "Results", icon: ChartColumn },
   { href: "/audit", label: "Audit log", icon: ClipboardList },
 ];

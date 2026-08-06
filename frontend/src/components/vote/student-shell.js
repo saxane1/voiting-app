@@ -47,20 +47,20 @@ export default function StudentShell({ children }) {
           <Link
             href="/vote/profile"
             aria-label="Your profile"
-            className="border-line flex items-center gap-2 rounded-pill border bg-slate-50 py-[5px] pr-1.5 pl-[5px] transition hover:border-indigo-200 hover:bg-indigo-50"
+            className=" flex items-center "
           >
             <span
-              className="bg-brand-gradient font-display grid size-[26px] shrink-0 place-items-center rounded-full text-[11px] font-bold text-white"
+              className="bg-brand-gradient font-display grid size-[26px] shrink-0 place-items-center rounded-full text-[11px] font-bold text-white border-2 border-indigo-600 "
               aria-hidden="true"
             >
               {initialsOf(user?.name)}
             </span>
 
-            {user?.name && (
+            {/* {user?.name && (
               <span className="text-muted hidden max-w-[160px] truncate pr-1 text-xs font-medium min-[420px]:block">
                 {user.name}
               </span>
-            )}
+            )} */}
           </Link>
         </StudentContainer>
       </header>
