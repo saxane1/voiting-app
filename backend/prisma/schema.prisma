@@ -59,7 +59,21 @@ model User {
   facultyId String?  @map("faculty_id")
   faculty   Faculty? @relation("FacultyStudents", fields: [facultyId], references: [id])
 
-  isActive  Boolean  @default(true) @map("is_active")
+  isActive Boolean @default(true) @map("is_active")
+
+  // The bootstrap (seed) admin, and only ever that one account. It is the
+  // permanent root of trust: it can never be deactivated, by anyone, including
+  // itself, so the system can never be left with no one able to administer it.
+  //
+  // ⚠ A PARTIAL UNIQUE INDEX enforces "at most one root" in the database:
+  //     CREATE UNIQUE INDEX "users_is_root_key" ON "users"("is_root")
+  //       WHERE "is_root";
+  // Prisma's schema language cannot express a WHERE clause on an index, so that
+  // index lives ONLY in the 20260816120000_add_user_is_root migration and is
+  // invisible to this file. Read the warning in that migration before running
+  // `prisma migrate dev` — it will try to drop an index it cannot see.
+  isRoot Boolean @default(false) @map("is_root")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

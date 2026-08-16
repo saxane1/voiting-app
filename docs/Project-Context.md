@@ -144,7 +144,7 @@ No join column exists between them → even a full-DB insider can't reveal how a
 ## 11b. Coding conventions & structure (MY STYLE — follow exactly)
 
 **Naming**
-- **Files & folders: lowercase kebab-case** — e.g. `auth-controllers.js`, `election-detail/`, `admins-form.js`. **Never** PascalCase or camelCase for file/folder names.
+- **Files & folders: lowercase kebab-case** — e.g. `auth-controllers.js`, `election-detail/`, `users-form.js`. **Never** PascalCase or camelCase for file/folder names.
 - **Function names: camelCase.**
 - Backend uses **ES modules** — `import`/`export`, never `require`.
 - Preference: clean, flexible, manageable structure.
@@ -177,11 +177,13 @@ frontend/src/
                          data fetching / auth; keep it CLEAN
     layout.js  page.js  globals.css
   components/<feature>/   UI split into small files by feature
-                         (e.g. adminstration/admins-form.js, admins-page.js)
+                         (e.g. adminstration/users-form.js, users-page.js)
   context/               React context providers
   utils/axios.js         axios instance
 ```
-**Pattern (my habit):** the route `page.js` is the **server-side parent** that fetches data and composes; the actual UI is split into small client-component files under `components/<feature>/`. Keeps routes clean and logic separated.
+**Pattern (my habit):** the route `page.js` is the **server-side parent** that composes; the actual UI is split into small client-component files under `components/<feature>/`. Keeps routes clean and logic separated.
+
+⚠ **The parent composes — it does NOT fetch.** This originally read "fetches data and composes", which the locked F0 auth model makes impossible: the access token lives in **browser memory only**, so a server component has no credential to call the API with. Every authenticated read goes through the client `utils/axios.js` instance, which is also what gives it the single-flight refresh and the 401 retry. A route parent that fetched would need a second, weaker auth path invented just for it. So `page.js` stays thin: `metadata` + render the client component. See the resolved-decisions log.
 
 ---
 
@@ -234,3 +236,16 @@ Source: *PSU Thesis Guideline for Undergraduate Students* (Galkaio Campus, Super
 - Results = not public in app; university announces officially.
 - Hosting = **persistent Node host (Railway or AWS Lightsail)** + Neon DB; email via Nodemailer + transactional SMTP. (Vercel dropped — serverless can't run Socket.io.)
 - Thesis = follow PSU official guideline (§12), min 60 pages, APA.
+- Elevated accounts (B3b) = admin-created ADMIN/AUDITOR, seeded **root of trust** that can never be deactivated, enforced by a server guard *and* a partial unique index. Soft deactivation only.
+
+### Frontend architecture — settled during B3b
+
+Three points where the B3b spec described one thing and the shipped code does another. In each case the repo was right and the spec was written without the F0 constraint in view. Recorded here so they are not "corrected" back later.
+
+1. **Route parents do not fetch server-side.** The spec asked the `users` route parent to do the initial fetch. It cannot: the access token is memory-only (F0), so a server component holds no credential. The client component fetches through the axios instance. This is general — it applies to every authenticated screen, not just B3b. (See the §11b warning above.)
+
+2. **The ADMIN guard lives in `app/adminstration/layout.js`, not per-page.** The spec asked for a guard on the users page. The layout already wraps the whole subtree in `<RequireRole roles={["ADMIN"]}>`, so a per-page guard would be redundant *and* would establish a pattern where each new admin screen has to remember its own gate. One gate the subtree inherits cannot be forgotten; a per-page one can. AUDITOR and STUDENT are redirected to `/not-authorized` before anything renders.
+
+3. **Nav gating is structural, not an inline role check.** The spec asked to show the Users entry "to ADMIN only". `ADMIN_NAV` is rendered exclusively by `<AdminShell>`, which sits inside that ADMIN-guarded layout — auditors get `<AuditShell>` instead, whose only admin link is already `{isAdmin && …}`. So the entry is ADMIN-only by construction. Adding a per-item role check would imply the list is sometimes rendered for a non-admin, which is not true and would be a misleading thing to teach the next screen.
+
+**None of the three is a security boundary.** Every `/api/users` route is `requireAuth + requireRole("ADMIN")` server-side, and `requireAuth` re-reads the account on each request. The client only decides what the browser paints.

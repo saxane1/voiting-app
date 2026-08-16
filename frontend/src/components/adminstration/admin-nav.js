@@ -6,6 +6,7 @@ import {
   ClipboardList,
   GraduationCap,
   LayoutDashboard,
+  ShieldCheck,
   Users,
   Vote,
 } from "lucide-react";
@@ -25,6 +26,13 @@ import { usePathname } from "next/navigation";
  * under /adminstration, because that page is shared with the AUDITOR role,
  * whose users are not admins and must not be sent through an ADMIN-guarded
  * layout. It is the one nav item that leaves this shell.
+ *
+ * NOTE on Access: this list is rendered ONLY by <AdminShell>, which sits inside
+ * app/adminstration/layout.js and its <RequireRole roles={["ADMIN"]}>. So the
+ * Access entry is ADMIN-only by construction — an AUDITOR never renders this
+ * component at all, they get <AuditShell> instead, which links nowhere near it.
+ * No per-item role check is needed here, and adding one would imply this list is
+ * ever shown to somebody who is not an admin.
  */
 
 export const ADMIN_NAV = [
@@ -34,6 +42,7 @@ export const ADMIN_NAV = [
   { href: "/adminstration/elections", label: "Elections", icon: Vote },
   // { href: "/adminstration/candidates", label: "Candidates", icon: GraduationCap },
   { href: "/adminstration/results", label: "Results", icon: ChartColumn },
+  { href: "/adminstration/users", label: "Access", icon: ShieldCheck },
   { href: "/audit", label: "Audit log", icon: ClipboardList },
 ];
 

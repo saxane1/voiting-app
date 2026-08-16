@@ -38,6 +38,10 @@ async function seedFaculties() {
   return results;
 }
 
+// The bootstrap admin is the ROOT OF TRUST (B3b): isRoot = true marks the one
+// account that can never be deactivated, so the system can never be locked out
+// of its own administration. "At most one root" is enforced by a partial unique
+// index on users(is_root) WHERE is_root — see the add_user_is_root migration.
 async function seedBootstrapAdmin() {
   const email = env.BOOTSTRAP_ADMIN_EMAIL;
 
@@ -49,29 +53,67 @@ async function seedBootstrapAdmin() {
 
   const normalisedEmail = email.trim().toLowerCase();
 
-  const existing = await prisma.user.findUnique({
-    where: { email: normalisedEmail },
-    select: { id: true, role: true },
-  });
+  const [existing, currentRoot] = await Promise.all([
+    prisma.user.findUnique({
+      where: { email: normalisedEmail },
+      select: { id: true, role: true, isRoot: true },
+    }),
+    prisma.user.findFirst({
+      where: { isRoot: true },
+      select: { id: true, email: true },
+    }),
+  ]);
 
+  // A root already exists under a DIFFERENT address. Re-pointing
+  // BOOTSTRAP_ADMIN_EMAIL would otherwise move the trust anchor as a silent
+  // side effect of an .env edit — which is a privilege-escalation path, not a
+  // configuration change. Refuse and make the operator do it deliberately.
+  // (Without this the upsert would still be blocked, but by a raw P2002 from
+  // the partial unique index, which says nothing about what to do next.)
+  if (currentRoot && currentRoot.email !== normalisedEmail) {
+    throw new Error(
+      [
+        `A root admin already exists (${currentRoot.email}) but BOOTSTRAP_ADMIN_EMAIL is set to ${normalisedEmail}.`,
+        "The seed will not move the root of trust on its own.",
+        "Either point BOOTSTRAP_ADMIN_EMAIL back at the existing root, or transfer root deliberately:",
+        "  1. create the new admin through POST /api/users (it is audited),",
+        "  2. in one transaction, clear isRoot on the old account and set it on the new one,",
+        "  3. then update BOOTSTRAP_ADMIN_EMAIL to match.",
+      ].join("\n         ")
+    );
+  }
+
+  // Safe now: either no root exists, or the existing root IS this email, so the
+  // partial unique index cannot be violated by writing isRoot: true here.
   const admin = await prisma.user.upsert({
     where: { email: normalisedEmail },
-    // On re-run, only guarantee the account can still administer. The name is
-    // left alone so an edit made through the app is not reverted by a re-seed.
-    update: { role: "ADMIN", isActive: true },
+    // On re-run, guarantee the account can still administer AND is still the
+    // root. The name is left alone so an edit made through the app is not
+    // reverted by a re-seed.
+    update: { role: "ADMIN", isActive: true, isRoot: true },
     create: {
       email: normalisedEmail,
       name: env.BOOTSTRAP_ADMIN_NAME,
       role: "ADMIN",
       isActive: true,
+      isRoot: true,
       // ADMIN accounts carry no studentId/facultyId — those are student-only.
     },
   });
 
-  return {
-    email: admin.email,
-    action: existing ? (existing.role === "ADMIN" ? "unchanged" : "promoted to ADMIN") : "created",
-  };
+  let action;
+
+  if (!existing) {
+    action = "created";
+  } else if (existing.role !== "ADMIN") {
+    action = "promoted to ADMIN";
+  } else if (!existing.isRoot) {
+    action = "marked root";
+  } else {
+    action = "unchanged";
+  }
+
+  return { email: admin.email, action };
 }
 
 async function main() {
@@ -87,7 +129,11 @@ async function main() {
 
   const facultyCount = await prisma.faculty.count();
   const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
-  console.log(`[seed] done — ${facultyCount} faculties, ${adminCount} admin(s)`);
+  // Root count is printed as a standing invariant check: it must always read 1.
+  const rootCount = await prisma.user.count({ where: { isRoot: true } });
+  console.log(
+    `[seed] done — ${facultyCount} faculties, ${adminCount} admin(s), ${rootCount} root`
+  );
 }
 
 main()

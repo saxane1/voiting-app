@@ -29,8 +29,16 @@ const envSchema = z.object({
 
   // Used only by prisma/seed.js. Optional here so the server still boots without
   // it; the seed script fails loudly if it is missing.
+  // This address is also the ROOT OF TRUST (B3b): the account it names is
+  // flagged isRoot and can never be deactivated.
   BOOTSTRAP_ADMIN_EMAIL: z.email("BOOTSTRAP_ADMIN_EMAIL must be a valid email").optional(),
   BOOTSTRAP_ADMIN_NAME: z.string().min(1).default("PSU Election Admin"),
+
+  // Public origin of the FRONTEND, used to build links in outgoing email. It is
+  // optional because it is almost always the first CORS_ORIGIN entry — see
+  // appUrl below, which falls back to exactly that. Set it explicitly when the
+  // browser-facing URL differs from the allowed origin list (e.g. behind a CDN).
+  APP_URL: z.url("APP_URL must be a full URL, e.g. https://vote.psu.edu.so").optional(),
 
   // ---------------------- Auth (B1) ----------------------
 
@@ -80,3 +88,7 @@ export const env = parsed.data;
 
 export const isProduction = env.NODE_ENV === "production";
 export const isDevelopment = env.NODE_ENV === "development";
+
+// Where a human should be sent when an email links them back into the app.
+// Trailing slash stripped so callers can append a path without doubling it.
+export const appUrl = (env.APP_URL ?? env.CORS_ORIGIN[0]).replace(/\/+$/, "");

@@ -48,7 +48,58 @@ The backend contract. Every Track-B module implements a slice of this. Base path
 | PATCH | `/students/:id` | ADMIN | Update fields. |
 | PATCH | `/students/:id/deactivate` | ADMIN | Deactivate (soft) — cannot log in / vote. |
 
-*(Optional B3b — admin/auditor accounts: `POST /users` ADMIN to create ADMIN/AUDITOR users.)*
+*(Elevated ADMIN/AUDITOR accounts are **not** managed here — see Users (module B3b) below.)*
+
+---
+
+## Users  (module B3b)  — base `/api/users`
+*(Elevated accounts only: Users with role ADMIN or AUDITOR. STUDENT rows never appear here.)*
+
+| Method | Path | Access | Purpose |
+|---|---|---|---|
+| GET | `/users` | ADMIN | List elevated accounts (`role in {ADMIN, AUDITOR}`). Returns id, name, email, role, isActive, isRoot. Supports `?page`, `?limit`, `?search` (name or email), `?role`. |
+| POST | `/users` | ADMIN | Create `{email, name, role}` where role ∈ {ADMIN, AUDITOR}. Returns 201 `{user, notification}`. |
+| PATCH | `/users/:id` | ADMIN | Edit identity: `name` and/or `email`, at least one. Nothing else is accepted. Returns `{user, changed, notification?}`. |
+| PATCH | `/users/:id/deactivate` | ADMIN | Soft-deactivate. Refused for the root account, for self, and for the last active ADMIN. |
+| PATCH | `/users/:id/reactivate` | ADMIN | Un-deactivate. Idempotent, like its counterpart. |
+
+- **The whole slice is `requireRole('ADMIN')`.** AUDITOR is refused here as firmly as STUDENT: read-only oversight that could grant itself a second account, or disable the admins it watches, is not oversight. `GET /audit` remains the only endpoint the AUDITOR role exists for.
+- **No credential is ever provisioned.** Auth is passwordless, so an account is an email plus a role; the holder signs in through the ordinary OTP flow. There is nothing in the request or the response worth stealing.
+- **Email is the login identity and is unique across ALL users.** An address already held by a student is a 409, never a silent promotion of that student into an administrator.
+- **`isRoot` is not settable through the API.** The seed script alone claims it (`BOOTSTRAP_ADMIN_EMAIL`), and a partial unique index — `users(is_root) WHERE is_root` — makes "at most one root" a database invariant rather than a convention.
+- **Soft deactivation only, never a hard delete.** These accounts appear as actors throughout the audit log; deleting one would orphan the trail that proves what they did while they held power.
+- **Deactivation bites immediately**, not at token expiry: `requireAuth` re-reads the account on every request (401 `ACCOUNT_INACTIVE`), and `POST /auth/refresh` revokes the whole refresh-token family with reason `DEACTIVATED`. The one gap is an already-established Socket.io connection, which is verified at handshake only.
+
+**Error codes** this slice returns beyond the standard envelope:
+
+| Code | Status | Meaning |
+|---|---|---|
+| `STUDENT_FIELD_NOT_ALLOWED` | 400 | `studentId` or `facultyId` was present in the body. Elevated accounts have neither. |
+| `FIELD_NOT_EDITABLE` | 400 | `role`, `isRoot` or `isActive` was present in a PATCH body. Each is refused for its own reason — see the note below. |
+| `EMAIL_ALREADY_EXISTS` | 409 | The address is taken — by another elevated account **or** by a student. |
+| `ROOT_ACCOUNT_IMMUTABLE` | 409 | The seeded root admin can never be deactivated, by anyone, including itself. |
+| `CANNOT_DEACTIVATE_SELF` | 409 | An admin may not deactivate their own account. |
+| `LAST_ACTIVE_ADMIN` | 409 | Refuses to remove the final active ADMIN. Belt-and-suspenders behind the root rule — see the note below. |
+| `USER_NOT_FOUND` | 404 | No ADMIN/AUDITOR with that id (a STUDENT id 404s here too). |
+
+**On `LAST_ACTIVE_ADMIN`:** it is unreachable over HTTP and that is by design, not an oversight. The caller must be an active ADMIN, so if the target is someone else the caller *is* the other active admin and the count is never zero; if the target is the caller, `CANNOT_DEACTIVATE_SELF` fires first. The root rule dominates both. It is kept as a defensive floor and is tested by calling the controller directly against a fabricated single-admin state.
+
+**`PATCH /users/:id` edits IDENTITY ONLY — name and email.** Nothing about an account's *power* is editable through it, and each exclusion has its own reason:
+
+- **`role`** — promoting or demoting an existing account is deferred future work. Create the account with the role it needs.
+- **`isRoot`** — never settable through the API at all; the seed script claims it and a partial unique index enforces it.
+- **`isActive`** — has its own `/deactivate` and `/reactivate` endpoints, which carry the root, self and last-admin guards. A general-purpose PATCH that accepted it would be a way around all three.
+- **`studentId` / `facultyId`** — elevated accounts have neither.
+
+All five are **rejected with a 400, never silently stripped**: an admin who sends `isActive: false` and gets a 200 back would reasonably believe the account was disabled, and it would not be.
+
+**Editing the root account's name or email IS allowed.** Root means the account can never be *deactivated* — it is the permanent trust anchor, not an immutable record. Since the email is the only way to sign in as it, refusing to correct a typo there would be the more dangerous rule.
+
+**Email changes re-check global uniqueness** (excluding the row being edited, so re-saving an unchanged address is a no-op rather than a self-conflict) and are normalised to lowercase before comparison — the `@unique` index is case-sensitive, so normalisation is what makes the rule case-insensitive in practice.
+
+**`notification` on POST and PATCH.** `{sent: boolean, warning?: string}` alongside the user. A failed notification email does **not** roll back the account or the edit — the holder can still sign in via OTP or the admin fallback code, so destroying valid work over a courtesy email would be the worse outcome. The failure is logged, recorded as `ELEVATED_ACCESS_EMAIL_FAILED` in the audit log, and surfaced to the admin UI as a non-blocking notice. On PATCH the key is **present only when the email actually changed** — the notification goes to the NEW address, and a name-only edit emails nobody.
+
+**Audit actions written here:** `ADMIN_CREATED`, `AUDITOR_CREATED`, `ADMIN_UPDATED`, `AUDITOR_UPDATED`, `ADMIN_DEACTIVATED`, `AUDITOR_DEACTIVATED`, `ADMIN_REACTIVATED`, `AUDITOR_REACTIVATED`, plus `ELEVATED_ACCESS_EMAIL_FAILED`. Each carries the acting admin, the target user id and the role. The `*_UPDATED` rows record **which field names changed and nothing more** — never the old or new address, since the audit log is exported and read more widely than the users table is.
 
 ---
 
@@ -124,4 +175,14 @@ The backend contract. Every Track-B module implements a slice of this. Base path
 ---
 
 ## Endpoint count by module
-B1 auth (6) · B2 faculties (4) · B3 students (6) · B4 elections (8) · B5 candidates (4) · B6 voting (4) · B7 results (3) · B9 audit (1) + B8 socket events. ≈ 36 REST endpoints.
+
+Counted from the route files in `backend/src/routes/`, not from the tables above.
+
+B1 auth (6) · B2 faculties (4) · B3 students (7) · **B3b users (5)** · B4 elections (11) · B5 candidates (4) · B6 voting (4) · B7 results (3) · B9 audit (1) + B8 socket events. **45 REST endpoints**, plus `GET /api/health`.
+
+⚠ **Four of those are implemented but have no row in the tables above** — found while recounting for B3b, and predating it:
+
+- `PATCH /students/:id/reactivate` (B3) — the counterpart to deactivate.
+- `POST /elections/:id/schedule`, `POST /elections/:id/unschedule`, `POST /elections/:id/reopen` (B4) — the lighter lifecycle transitions, which the B8 section already refers to.
+
+The counts above are the true ones. Adding the missing rows is a small doc task, deliberately left separate from the B3b change so this file's history stays readable.

@@ -531,8 +531,10 @@ export async function refresh(req, res) {
     );
   }
 
-  // Re-read the user on every refresh: this is where a deactivated account is
-  // caught, since requireAuth deliberately does not touch the database.
+  // Re-read the user on every refresh. requireAuth also checks isActive now
+  // (B3b §5), but this check is the one that ENDS the session rather than merely
+  // refusing one request: it is what revokes the whole refresh-token family, so
+  // a deactivated user cannot keep minting access tokens from a live cookie.
   const user = await prisma.user.findUnique({
     where: { id: stored.userId },
     select: {
@@ -685,8 +687,10 @@ export async function me(req, res) {
     },
   });
 
-  // A still-valid access token can outlive the account it was issued for, since
-  // requireAuth performs no database lookup. This is where that is caught.
+  // Redundant since B3b §5 gave requireAuth its own isActive check — a
+  // deactivated user is now stopped before reaching this handler. Kept because
+  // this endpoint's contract is "the live account behind this token", and it
+  // should not depend on a middleware three files away to stay true.
   if (!user || !user.isActive) {
     return res.status(404).json({
       error: { code: "USER_NOT_FOUND", message: "User account is no longer available" },

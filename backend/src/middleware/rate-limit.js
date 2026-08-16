@@ -109,8 +109,11 @@ export const otpRequestLimiter = rateLimit({
 // The token is VERIFIED, never merely decoded. A decoded-but-unverified `sub`
 // would let anyone mint an unlimited supply of buckets by forging subject
 // claims, which defeats the limiter entirely. Verification is a stateless HMAC
-// check with no database access — the same cost profile as requireAuth, which
-// is deliberately DB-free for exactly this reason.
+// check with NO database access, which matters here specifically: this limiter
+// runs in front of every /api request including the ones it is about to reject,
+// so it must stay cheap. (requireAuth, further down the stack, does now make one
+// indexed lookup to catch deactivated accounts — see B3b §5 — but that only ever
+// runs for requests the limiter has already let through.)
 // ---------------------------------------------------------------------------
 
 // Resolved once per request and cached: both keyGenerator and limit need it,

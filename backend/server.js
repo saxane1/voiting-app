@@ -19,6 +19,7 @@ import facultyRoutes from "./src/routes/faculty-routes.js";
 import healthRoutes from "./src/routes/health-routes.js";
 import meRoutes from "./src/routes/me-routes.js";
 import studentRoutes from "./src/routes/student-routes.js";
+import userRoutes from "./src/routes/user-routes.js";
 import voteRoutes from "./src/routes/vote-routes.js";
 
 const app = express();
@@ -98,6 +99,10 @@ app.use("/api", apiLimiter);
 
 app.use("/api/faculties", facultyRoutes);
 app.use("/api/students", studentRoutes);
+// B3b — elevated (ADMIN/AUDITOR) accounts. Separate from /api/students on
+// purpose: different population, different guards, no overlap in either
+// direction.
+app.use("/api/users", userRoutes);
 app.use("/api/audit", auditRoutes);
 
 // Voter-facing. Its own router with a STUDENT gate — never under the

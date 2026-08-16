@@ -30,6 +30,16 @@ Three tracks: **Backend (B)**, **Frontend (F)**, **Thesis Book (T)**. Modules ar
 - **Bulk Excel upload** (parse with SheetJS/exceljs, validate rows, dedupe on studentId/email, report errors).
 - List / search / update / deactivate. Admin-only guard.
 
+### B3b — Admin & auditor account management (admin only) ✅ DONE
+- `GET /users`, `POST /users`, `PATCH /users/:id`, `PATCH /users/:id/deactivate`, `PATCH /users/:id/reactivate`. Whole slice `requireRole('ADMIN')` — AUDITOR refused too.
+- Creates ADMIN/AUDITOR only; rejects `studentId`/`facultyId`. Email unique across ALL users, so an address held by a student is a 409, never a promotion.
+- `PATCH /users/:id` edits **identity only** (name, email). `role`, `isRoot` and `isActive` are rejected with a 400 rather than stripped — activation keeps its own endpoints so its guards cannot be bypassed by a field name. Editing root's name/email is allowed; root means "cannot be deactivated", not "frozen". An address change notifies the new address.
+- **Root of trust:** the seeded admin carries `isRoot` and can never be deactivated. Enforced twice — a server guard, and a partial unique index `users(is_root) WHERE is_root` that makes "at most one root" a database invariant.
+- Deactivate guards: root, self, last active ADMIN. Soft only — a hard delete would orphan the audit trail.
+- **Touches B1:** `requireAuth` now re-reads the account on every request so deactivation bites immediately instead of at token expiry. Costs one indexed lookup per authenticated request; accepted knowingly.
+- Passwordless notification email on creation (no OTP in it). A send failure never rolls back the account.
+- 35 tests in `backend/tests/` (`npm test`), covering the role guard, create validation, identity edits, root immutability, self-deactivation, the last-admin floor and the deactivation enforcement path. Self-cleaning: the suite asserts the table is back to its starting counts before it exits.
+
 ### B4 — Election management (admin only)
 - CRUD; type (FACULTY/UNIVERSITY), faculty scope, start/end window.
 - Status lifecycle: DRAFT → SCHEDULED → OPEN → CLOSED → PUBLISHED.
@@ -69,11 +79,12 @@ Three tracks: **Backend (B)**, **Frontend (F)**, **Thesis Book (T)**. Modules ar
 ---
 
 ## TRACK F — FRONTEND
-*React (Vite)*
+*Next.js (App Router) — see Project-Context §11. **Not** Vite/CRA: this line said "React (Vite)" until B3b and was simply stale.*
 
 ### F0 — Project setup
-- React + Vite scaffold, router, Tailwind (or chosen CSS), API client with **access/refresh interceptor** (auto-refresh on 401).
+- Next.js App Router scaffold, Tailwind v4, API client (`utils/axios.js`) with **access/refresh interceptor** (single-flight auto-refresh on 401).
 - Auth state/context, role-based route guards. Mobile-first (low-end phones).
+- **The access token is memory-only.** That is a locked F0 decision with a structural consequence for every screen: a server component holds no credential, so route parents cannot fetch on the user's behalf. Route `page.js` files stay thin and the client components fetch.
 
 ### F1 — Auth UI
 - Email entry → OTP entry → session. Handle expiry, resend cooldown, errors.
@@ -85,6 +96,14 @@ Three tracks: **Backend (B)**, **Frontend (F)**, **Thesis Book (T)**. Modules ar
 
 ### F3 — Admin: student management
 - List/search, create-one form, **Excel upload** with validation feedback, edit/deactivate.
+
+### F3b — Admin: access management (ADMIN & AUDITOR accounts) ✅ DONE
+- Route `app/adminstration/users/page.js` + `components/adminstration/users-page.js` and `users-form.js`.
+- Table of elevated accounts (name, email, role, status, `isRoot` badge), search and role filter, paginated. Create form with inline validation mirroring the server's rules; no password field, because there is no password.
+- Per-row **Edit** (`users-edit-form.js`) for name and email, sharing the create form's field components and validation so the two cannot drift. No role or status control — those are refused server-side. Offered on every row including root and your own, since neither edit is a deactivation.
+- Deactivate/reactivate behind the shared `<ConfirmDialog>`. UI guards mirror the server: the root row and your own row have the control disabled, with the reason on hover.
+- A failed notification email renders as a **dismissible amber notice, not an error** — the account was created, someone just has to tell the holder.
+- **Nav:** an "Access" entry in `ADMIN_NAV`, which is ADMIN-only by construction (see the F-track note below).
 
 ### F4 — Admin: faculty management
 - Simple list + edit.
@@ -140,6 +159,8 @@ APA references · work plan/Gantt · instruments (questionnaire) · key code · 
 **Phase 4 — The vote:** B6, B7 → F2 (voter flow). Core of the system.
 **Phase 5 — Real-time + audit:** B8, B9 → F7, F8.
 **Phase 6 — Hardening:** B10, F9.
+
+*Built out of order:* **B3b / F3b** (admin & auditor accounts) landed after B9, because its audit actions and its `requireAuth` enforcement both depend on B1 and B9 already existing. It sits next to B3 in this list by subject, not by build date.
 
 **Thesis runs in parallel, not after:**
 - **T0–T3 can be written now / during the build** (intro, lit review, methodology + design diagrams come from work you're already doing).

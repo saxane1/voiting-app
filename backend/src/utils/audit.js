@@ -97,6 +97,27 @@ export const AUDIT_ACTIONS = {
   CANDIDATE_UPDATED: "CANDIDATE_UPDATED",
   CANDIDATE_REMOVED: "CANDIDATE_REMOVED",
 
+  // B3b — elevated (non-student) account management. Creating or disabling an
+  // account that can administer an election is the highest-privilege action in
+  // the system outside the vote itself, so each one is a named action rather
+  // than a generic USER_UPDATED: an auditor filtering on ADMIN_CREATED must see
+  // every grant of admin power without having to interpret a diff.
+  ADMIN_CREATED: "ADMIN_CREATED",
+  AUDITOR_CREATED: "AUDITOR_CREATED",
+  // Identity edits (name / email). The email IS the login identity, so changing
+  // it changes who can sign in as this account — which is why it is a named
+  // action rather than a generic update. The row records WHICH fields changed,
+  // never the addresses themselves.
+  ADMIN_UPDATED: "ADMIN_UPDATED",
+  AUDITOR_UPDATED: "AUDITOR_UPDATED",
+  ADMIN_DEACTIVATED: "ADMIN_DEACTIVATED",
+  AUDITOR_DEACTIVATED: "AUDITOR_DEACTIVATED",
+  ADMIN_REACTIVATED: "ADMIN_REACTIVATED",
+  AUDITOR_REACTIVATED: "AUDITOR_REACTIVATED",
+  // The account exists and works; only the courtesy notification failed. Worth
+  // a row so "I was never told" can be checked against the record.
+  ELEVATED_ACCESS_EMAIL_FAILED: "ELEVATED_ACCESS_EMAIL_FAILED",
+
   STUDENT_CREATED: "STUDENT_CREATED",
   STUDENTS_BULK_IMPORTED: "STUDENTS_BULK_IMPORTED",
   STUDENT_UPDATED: "STUDENT_UPDATED",

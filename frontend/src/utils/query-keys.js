@@ -23,6 +23,19 @@ export const queryKeys = {
   student: (id) => ["students", "detail", id],
 
   /**
+   * Elevated accounts — ADMIN and AUDITOR (B3b). Same prefix discipline as
+   * students: one invalidation of ["users"] after a create or an activation
+   * toggle refreshes the list on whatever page, search and role filter happens
+   * to be mounted.
+   *
+   * Deliberately a DIFFERENT prefix from ["students"], mirroring the API: the
+   * two populations never appear in each other's lists, so invalidating one
+   * must not refetch the other.
+   */
+  users: ["users"],
+  userList: (params) => ["users", "list", params],
+
+  /**
    * Elections (F4). Same prefix discipline as students: one invalidation of
    * ["elections"] after a create, edit or status transition refreshes both the
    * list and the detail view — which matters more here than anywhere else,
