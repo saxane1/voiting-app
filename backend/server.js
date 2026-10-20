@@ -50,10 +50,23 @@ app.use(
   })
 );
 
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'https://feisty-cooperation-production-9ae9.up.railway.app',
+  'https://voiting-app-production.up.railway.app'
+];
+
 app.use(
   cors({
-    origin: env.CORS_ORIGIN,
-    credentials: true, // required for the httpOnly refresh cookie (B1)
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin) || (env.CORS_ORIGIN && origin === env.CORS_ORIGIN)) {
+        callback(null, true);
+      } else {
+        callback(null, true);
+      }
+    },
+    credentials: true,
   })
 );
 app.use(express.json({ limit: "1mb" }));
